@@ -44,10 +44,17 @@ namespace KSTPC
         public int Size;
         public byte[] Message;
         //Metody
-        public void Send(Socket socket)
+        public bool Send(Socket socket)
         {
             if (Prepared)
-                socket.Send(ConvertMessageToByte(), KSTMessageSize + Size, SocketFlags.None);
+            {
+                try
+                {
+                    socket.Send(ConvertMessageToByte(), KSTMessageSize + Size, SocketFlags.None);
+                    Console.WriteLine("[0x{0:x8}] Wysłano wiadomość do 0x{1:x8}", socket.GetHashCode(), Remoteid);
+                }
+            }
+            return false;
         }
         public void Prepare(int remoteid, int command, int size, byte[] message)
         {
@@ -61,16 +68,43 @@ namespace KSTPC
         }
         public bool Receive(Socket socket)
         {
-            byte[] buffer = new byte[KSTMessageSize];
-            if(socket.Receive(buffer, KSTMessageSize, SocketFlags.None)==0)
-                return false;
-            ConvertByteToMessage(buffer);
-            if (Size > 0)
+            try
             {
-                Message = new byte[Size];
-                socket.Receive(Message);
+                byte[] buffer = new byte[KSTMessageSize];
+                int received = 0;
+                while (received < KSTMessageSize)
+                {
+                    int n = socket.Receive(buffer, received, KSTMessageSize - received, SocketFlags.None);
+                    if (n == 0) // połączenie zostało zamknięte
+                        return false;
+                    received += n;
+                }
+
+                ConvertByteToMessage(buffer);
+
+                if (Size > 0)
+                {
+                    Message = new byte[Size];
+                    received = 0;
+                    while (received < Size)
+                    {
+                        int n = socket.Receive(Message, received, Size - received, SocketFlags.None);
+                        if (n == 0)
+                            return false;
+                        received += n;
+                    }
+                }
+                Console.WriteLine("[0x{0:x8}] Odebrano wiadomość od 0x{1:x8}", socket.GetHashCode(), Remoteid);
+                return true;
             }
-            return true;
+            catch (ObjectDisposedException)
+            {
+                return false;
+            }
+            catch (SocketException)
+            {
+                return false;
+            }
         }
         byte[] ConvertMessageToByte()
         {
@@ -103,7 +137,6 @@ namespace KSTPC
         IPAddress _ipaddr;
         Dictionary<int, Socket> _clients;
         Task _TSend;
-        Task _TReceive;
         public IReadOnlyDictionary<int, Socket> Clients
         {
             get
@@ -117,6 +150,7 @@ namespace KSTPC
         object _lockvar;
         int _id;
         int _remoteid;
+        bool _reading;
         public int remoteID => _remoteid;
         Queue<KSTcpMessage> _toRead;
         Queue<KSTcpMessage> _toWrite;
@@ -133,7 +167,7 @@ namespace KSTPC
             _toRead = new Queue<KSTcpMessage>();
             _toWrite = new Queue<KSTcpMessage>();
             _TSend = new Task(Send);
-            _TReceive = new Task(Receive);
+            _reading = false;
             try
             {
                 _socket = new Socket(
@@ -186,20 +220,18 @@ namespace KSTPC
                     {
                         _clients.Add(client.GetHashCode(), client);
                     }
+                    Task.Run(() => Receive(client));
                 }
             }
             else if (_mode == (int)KSTpcMode.client)
             {
                 await _socket.ConnectAsync(_ipaddr, _port);
                 Console.WriteLine("[0x{0:x8}] Klient połączył się z serwerem", _socket.GetHashCode());
-                //KSTcpMessage message = new KSTcpMessage();
-                ReceiveMessages();
-                //message.Receive(_socket);
-                //_remoteid = message.Remoteid;
-                Console.WriteLine(
-                    "[0x{0:x8}] Zdalny numer 0x{1:x8} z serwera",
-                    _socket.GetHashCode(),
-                    _remoteid);
+                if (!_reading)
+                {
+                    Task.Run(() => Receive(_socket));
+                    _reading = true;
+                }
             }
         }
         public void Disconnect()
@@ -216,8 +248,17 @@ namespace KSTPC
                     lock (_lockvar)
                     {
                         foreach (KeyValuePair<int, Socket> client in _clients)
-                            if (client.Value.Connected)
-                                client.Value.Close();
+                        {
+                            try
+                            {
+                                if (client.Value != null && client.Value.Connected)
+                                {
+                                    try { client.Value.Shutdown(SocketShutdown.Both); } catch { }
+                                    client.Value.Close();
+                                }
+                            }
+                            catch { /* ignoruj wyjątki przy zamykaniu klienta */ }
+                        }
                     }
                 }
             }
@@ -228,22 +269,37 @@ namespace KSTPC
                 {
                     _work = false;
                 }
-                if (_socket.Connected)
-                    _socket.Close();
+                try
+                {
+                    if (_socket != null)
+                    {
+                        try { _socket.Shutdown(SocketShutdown.Both); } catch { }
+                        _socket.Close();
+                    }
+                }
+                catch { /* ignoruj */ }
             }
         }
         void SetRemoteId(KSTcpMessage message)
         {
             _remoteid = message.Remoteid;
+            Console.WriteLine(
+                "[0x{0:x8}] Zdalny numer 0x{1:x8} z serwera",
+                _socket.GetHashCode(),
+                _remoteid);
         }
         #endregion
         #region Odbieranie wiadomości
-        void Receive()
+        void Receive(Socket socket)
         {
-            if (_work)
+            while (_work)
             {
                 KSTcpMessage message = new KSTcpMessage();
-                message.Receive(_socket);
+                if (!socket.Connected || !message.Receive(socket))
+                {
+                    Thread.Sleep(100);
+                    continue;
+                }
                 switch (message.Command)
                 {
                     case (int)KSTCommand.CloseConnection:
@@ -289,14 +345,14 @@ namespace KSTPC
             else if (_mode == (int)KSTpcMode.client)
                 message.Send(_socket);
         }
-        public void ReceiveMessages()
-        {
-            if (_work)
-            {
-                _TReceive.Start();
-                _TReceive.Wait();
-            }
-        }
+        //public void ReceiveMessages()
+        //{
+        //    if (_work)
+        //    {
+        //        _TReceive.Start();
+        //        _TReceive.Wait();
+        //    }
+        //}
         public void SendMessages()
         {
             if (_work)

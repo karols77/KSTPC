@@ -28,6 +28,7 @@ namespace KSTPC
                 p.serwer.Disconnect();
 
                 Console.WriteLine("Naciśnij dowolny klawisz...");
+                Console.ReadKey(true);
             }
             catch (Exception ex)
             {
@@ -37,14 +38,14 @@ namespace KSTPC
         }
         void UtworzSerwer()
         {
-            serwer = new KSTpc(IPAddress.Loopback, (int)KSTpcMode.server, 80);
-            Thread ts = new Thread(serwer.Connect);
+            serwer = new KSTpc(IPAddress.Loopback, (int)KSTpcMode.server, 5000);
+            Task ts = new Task(serwer.Connect);
             ts.Start();
         }
         void UtworzKlient()
         {
-            klient = new KSTpc(IPAddress.Loopback, (int)KSTpcMode.client, 80);
-            Thread tk = new Thread(klient.Connect);
+            klient = new KSTpc(IPAddress.Loopback, (int)KSTpcMode.client, 5000);
+            Task tk = new Task(klient.Connect);
             tk.Start();
         }
         void TestSingle()
@@ -56,10 +57,15 @@ namespace KSTPC
             byte[] testBSerwer = Encoding.UTF8.GetBytes(testMSerwer);
             //Wysłanie wiadomości do serwera
             Console.WriteLine("Wysyłanie wiadomości do serwera: {0}", testMKlient);
-            klient.TakeMessage(testBKlient, klient.remoteID);
-            klient.SendMessages();
-            serwer.ReceiveMessages();
-            Console.WriteLine("Odebrano wiadomość od klienta: {0}", Encoding.UTF8.GetString(serwer.GetMessageB()));
+            klient?.TakeMessage(testBKlient, klient.remoteID);
+            klient?.SendMessages();
+            byte[] testBSerwerOdebrana;
+            while((testBSerwerOdebrana = serwer.GetMessageB()) == null)
+                Thread.Sleep(100);
+            if (testBSerwerOdebrana != null)
+                Console.WriteLine("Odebrano wiadomość od klienta: {0}", Encoding.UTF8.GetString(testBSerwerOdebrana));
+            else
+                Console.WriteLine("Nie odebrano wiadomości od klienta.");
         }
     }
 }
