@@ -1,11 +1,12 @@
 ﻿using System.Net;
+using System.Text;
 using System.Net.Sockets;
 
 namespace KSTPC
 {
     internal class Program
     {
-        KSTpc klient, serwer;
+        KSTpc? klient, serwer;
         static void Main(string[] args)
         {
             try 
@@ -18,6 +19,8 @@ namespace KSTPC
 
                 Console.WriteLine("Naciśnij dowolny klawisz...");
                 Console.ReadKey(true);
+
+                p.TestSingle();
 
                 //Zamknięcie połączeń
                 p.klient.Disconnect();
@@ -42,6 +45,20 @@ namespace KSTPC
             klient = new KSTpc(IPAddress.Loopback, (int)KSTpcMode.client, 80);
             Thread tk = new Thread(klient.Connect);
             tk.Start();
+        }
+        void TestSingle()
+        {
+            Console.WriteLine("Test pojedyńczej wiadomości...");
+            string testMKlient = "Wiadomość od klienta";
+            string testMSerwer = "Wiadomość od serwera";
+            byte[] testBKlient = Encoding.UTF8.GetBytes(testMKlient);
+            byte[] testBSerwer = Encoding.UTF8.GetBytes(testMSerwer);
+            //Wysłanie wiadomości do serwera
+            Console.WriteLine("Wysyłanie wiadomości do serwera: {0}", testMKlient);
+            klient.TakeMessage(testBKlient, 0);
+            klient.SendMessages();
+            serwer.ReceiveMessages();
+            Console.WriteLine("Odebrano wiadomość od klienta: {0}", Encoding.UTF8.GetString(serwer.GetMessageB()));
         }
     }
 }
