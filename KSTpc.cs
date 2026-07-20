@@ -59,16 +59,18 @@ namespace KSTPC
             if (size > 0 && message != null)
                 Message = message;
         }
-        public void Receive(Socket socket)
+        public bool Receive(Socket socket)
         {
             byte[] buffer = new byte[KSTMessageSize];
-            socket.Receive(buffer, KSTMessageSize, SocketFlags.None);
+            if(socket.Receive(buffer, KSTMessageSize, SocketFlags.None)==0)
+                return false;
             ConvertByteToMessage(buffer);
             if (Size > 0)
             {
                 Message = new byte[Size];
                 socket.Receive(Message);
             }
+            return true;
         }
         byte[] ConvertMessageToByte()
         {
@@ -115,6 +117,7 @@ namespace KSTPC
         object _lockvar;
         int _id;
         int _remoteid;
+        public int remoteID => _remoteid;
         Queue<KSTcpMessage> _toRead;
         Queue<KSTcpMessage> _toWrite;
         #endregion

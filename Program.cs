@@ -21,6 +21,7 @@ namespace KSTPC
                 Console.ReadKey(true);
 
                 p.TestSingle();
+                Console.ReadKey(true);
 
                 //Zamknięcie połączeń
                 p.klient.Disconnect();
@@ -55,7 +56,7 @@ namespace KSTPC
             byte[] testBSerwer = Encoding.UTF8.GetBytes(testMSerwer);
             //Wysłanie wiadomości do serwera
             Console.WriteLine("Wysyłanie wiadomości do serwera: {0}", testMKlient);
-            klient.TakeMessage(testBKlient, 0);
+            klient.TakeMessage(testBKlient, klient.remoteID);
             klient.SendMessages();
             serwer.ReceiveMessages();
             Console.WriteLine("Odebrano wiadomość od klienta: {0}", Encoding.UTF8.GetString(serwer.GetMessageB()));
