@@ -15,7 +15,7 @@ using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using System.Threading;
 
-namespace tpcz1
+namespace KSTPC
 {
 	#region Wyliczania
 	enum KSTpcMode
@@ -31,7 +31,7 @@ namespace tpcz1
 		CloseConnection
 	}
 	#endregion
-	struct KSTcpMessage
+	public struct KSTcpMessage
 	{
 		//Deklaracja stałych
 		public const int KSTMessageSize = 3 * sizeof(int) + sizeof(long);
