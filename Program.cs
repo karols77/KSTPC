@@ -66,6 +66,16 @@ namespace KSTPC
                 Console.WriteLine("Odebrano wiadomość od klienta: {0}", Encoding.UTF8.GetString(testBSerwerOdebrana));
             else
                 Console.WriteLine("Nie odebrano wiadomości od klienta.");
+            Console.WriteLine("Wysyłanie wiadomości do klienta: {0}", testMSerwer);
+            serwer?.TakeMessage(testBSerwer, klient.remoteID);
+            serwer?.SendMessages();
+            byte[] testBKlientaOdebrana;
+            while ((testBKlientaOdebrana = klient.GetMessageB()) == null)
+                Thread.Sleep(100);
+            if (testBKlientaOdebrana != null)
+                Console.WriteLine("Odebrano wiadomość od serwera: {0}", Encoding.UTF8.GetString(testBKlientaOdebrana));
+            else
+                Console.WriteLine("Nie odebrano wiadomości od serwera.");
         }
     }
 }

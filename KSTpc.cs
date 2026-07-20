@@ -50,8 +50,25 @@ namespace KSTPC
             {
                 try
                 {
-                    socket.Send(ConvertMessageToByte(), KSTMessageSize + Size, SocketFlags.None);
+                    int sent = 0;
+                    byte[] buffer = ConvertMessageToByte();
+                    while (sent < KSTMessageSize + Size)
+                    {
+                        int n = socket.Send(buffer, sent, KSTMessageSize + Size - sent, SocketFlags.None);
+                        if(n==0) // połączenie zostało zamknięte
+                            return false;
+                        sent += n;
+                    }
                     Console.WriteLine("[0x{0:x8}] Wysłano wiadomość do 0x{1:x8}", socket.GetHashCode(), Remoteid);
+                    return true;
+                }
+                catch (ObjectDisposedException)
+                {
+                    return false;
+                }
+                catch (SocketException)
+                {
+                    return false;
                 }
             }
             return false;
