@@ -28,17 +28,19 @@ namespace KSTPC
         None,
         SetRemoteid,
         SendMessage,
+        FwdMessage,
         CloseConnection
     }
     #endregion
     public struct KSTcpMessage
     {
         //Deklaracja stałych
-        public const int KSTMessageSize = 3 * sizeof(int) + sizeof(long);
+        public const int KSTMessageSize = 4 * sizeof(int) + sizeof(long);
 
         //Definicja zmiennych
         bool Prepared;
         public int Remoteid;
+        public int Fwdid;
         public int Command;
         public DateTime Time;
         public int Size;
@@ -77,6 +79,18 @@ namespace KSTPC
         {
             Prepared = true;
             Remoteid = remoteid;
+            Fwdid = 0;
+            Command = command;
+            Time = DateTime.Now;
+            Size = size;
+            if (size > 0 && message != null)
+                Message = message;
+        }
+        public void Prepare(int remoteid, int fwdid, int command, int size, byte[] message)
+        {
+            Prepared = true;
+            Remoteid = remoteid;
+            Fwdid = fwdid;
             Command = command;
             Time = DateTime.Now;
             Size = size;
@@ -128,6 +142,7 @@ namespace KSTPC
             MemoryStream ms = new MemoryStream(KSTMessageSize + Size);
             BinaryWriter bw = new BinaryWriter(ms);
             bw.Write(Remoteid);
+            bw.Write(Fwdid);
             bw.Write(Command);
             bw.Write(Time.ToBinary());
             bw.Write(Size);
@@ -141,6 +156,7 @@ namespace KSTPC
             BinaryReader br = new BinaryReader(ms);
             Prepared = true;
             Remoteid = br.ReadInt32();
+            Fwdid = br.ReadInt32();
             Command = br.ReadInt32();
             Time = DateTime.FromBinary(br.ReadInt64());
             Size = br.ReadInt32();
@@ -355,6 +371,12 @@ namespace KSTPC
                     case (int)KSTCommand.SendMessage:
                         AppendMessage(message);
                         break;
+                    case (int)KSTCommand.FwdMessage:
+                        if (_mode == (int)KSTpcMode.server)
+                            FwdMessage(message);
+                        else
+                            SendMessage(message);
+                        break;
                 }
             }
         }
@@ -364,6 +386,14 @@ namespace KSTPC
             {
                 _toRead.Enqueue(message);
             }
+        }
+        void FwdMessage(KSTcpMessage message)
+        {
+                if (_clients.ContainsKey(message.Fwdid))
+                {
+                    //Skorygować Remoteid na Fwdid
+                    message.Send(_clients[message.Fwdid]);
+                }
         }
         void Send()
         {
