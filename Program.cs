@@ -20,8 +20,19 @@ namespace KSTPC
                 Console.WriteLine("Naciśnij dowolny klawisz...");
                 Console.ReadKey(true);
 
-                //p.TestSingle();
-                p.TestMultiple();
+                //Testowanie
+                switch(string args[0])
+                {
+                    case "single":
+                        p.TestSingle();
+                        break
+                    case "multiple":
+                        p.TestMultiple();
+                        break;
+                    case: "clients":
+                        p.TestMultipleClients();
+                        break;
+                }
                 Console.ReadKey(true);
 
                 //Zamknięcie połączeń
@@ -135,6 +146,12 @@ namespace KSTPC
                         Encoding.UTF8.GetString(message));
             else
                 Console.WriteLine("Nie odebrano wiadomości od klienta.");
+
+        }
+        #endregion
+        #region Test wielu klientów
+        void TestMultipleClients()
+        {
 
         }
         #endregion
