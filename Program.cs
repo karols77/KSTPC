@@ -20,7 +20,8 @@ namespace KSTPC
                 Console.WriteLine("Naciśnij dowolny klawisz...");
                 Console.ReadKey(true);
 
-                p.TestSingle();
+                //p.TestSingle();
+                p.TestMultiple();
                 Console.ReadKey(true);
 
                 //Zamknięcie połączeń
@@ -48,6 +49,7 @@ namespace KSTPC
             Task tk = new Task(klient.Connect);
             tk.Start();
         }
+        #region Test pojedynczej wiadomości
         void TestSingle()
         {
             Console.WriteLine("Test pojedyńczej wiadomości...");
@@ -77,5 +79,64 @@ namespace KSTPC
             else
                 Console.WriteLine("Nie odebrano wiadomości od serwera.");
         }
+        #endregion
+        #region Test wielu wiadomości
+        void TestMultiple()
+        {
+            //Definicja wiadomości
+            List<string> testMessagesClient = new List<string>
+            {
+                "Wiadomość 1 od klienta",
+                "Wiadomość 2 od klienta",
+                "Wiadomość 3 od klienta",
+                "Wiadomość 4 od klienta",
+                "Wiadomość 5 od klienta"
+            };
+            List<string> testMessagesServer = new List<string>
+            {
+                "Wiadomość 1 od serwera",
+                "Wiadomość 2 od serwera",
+                "Wiadomość 3 od serwera",
+                "Wiadomość 4 od serwera",
+                "Wiadomość 5 od serwera"
+            };
+            Console.WriteLine("Test wielu wiadomości...");
+            
+            //Wysłanie wiadomości do serwera i klienta
+            Console.WriteLine("Wysyłanie wiadomości do serwera...");
+            foreach (var message in testMessagesClient)
+            {
+                byte[] testBKlient = Encoding.UTF8.GetBytes(message);
+                klient?.TakeMessage(testBKlient, klient.remoteID);
+            }
+            Console.WriteLine("Wysyłanie wiadomości do klienta...");
+            foreach (var message in testMessagesServer)
+            {
+                byte[] testBServer = Encoding.UTF8.GetBytes(message);
+                serwer?.TakeMessage(testBServer, klient.remoteID);
+            }
+            klient?.SendMessages();
+            serwer?.SendMessages();
+
+            //Odbieranie wiadomości z serwera i klienta
+            List<byte[]> bMessagesClient = klient?.GetMessagesB();
+            List<byte[]> bMessagesServer = serwer?.GetMessagesB();
+            if (bMessagesClient != null)
+                foreach (byte[] message in bMessagesClient)
+                    Console.WriteLine(
+                        "Odebrano wiadomość od serwera: {0}", 
+                        Encoding.UTF8.GetString(message));
+            else
+                Console.WriteLine("Nie odebrano wiadomości od klienta.");
+            if (bMessagesServer != null)
+                foreach (byte[] message in bMessagesServer)
+                    Console.WriteLine(
+                        "Odebrano wiadomość od serwera: {0}",
+                        Encoding.UTF8.GetString(message));
+            else
+                Console.WriteLine("Nie odebrano wiadomości od klienta.");
+
+        }
+        #endregion
     }
 }
