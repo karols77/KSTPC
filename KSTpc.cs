@@ -55,7 +55,7 @@ namespace KSTPC
                     while (sent < KSTMessageSize + Size)
                     {
                         int n = socket.Send(buffer, sent, KSTMessageSize + Size - sent, SocketFlags.None);
-                        if(n==0) // połączenie zostało zamknięte
+                        if (n == 0) // połączenie zostało zamknięte
                             return false;
                         sent += n;
                     }
@@ -251,27 +251,46 @@ namespace KSTPC
                 }
             }
         }
-        public void Disconnect()
+        public void Disconnect(int remoteId = 0)
         {
             if (_mode == (int)KSTpcMode.server)
             {
                 Console.WriteLine("[0x{0:x8}] Rozłączanie serwera", _socket.GetHashCode());
                 lock (_lockvar)
                 {
-                    _work = false;
                     Console.WriteLine(
                         "[0x{0:x8}] Rozłączanie z klientami...",
                         _socket.GetHashCode());
-                    lock (_lockvar)
+                    if (remoteId != 0 && _clients.ContainsKey(remoteId))
+                    {
+                        try
+                        {
+                            Console.WriteLine(
+                                "[0x{0:x8}] Rozłączanie klienta 0x{1:x8}",
+                                _socket.GetHashCode(),
+                                remoteId);
+                            Socket client = _clients[remoteId];
+                            if (client != null)
+                            {
+                                try { client.Shutdown(SocketShutdown.Both); } catch { }
+                                client.Close();
+                            }
+                        }
+                        catch { /* ignoruj wyjątki przy zamykaniu klienta */ }
+                    }
+                    else if (remoteId == 0)
                     {
                         foreach (KeyValuePair<int, Socket> client in _clients)
                         {
+                            Console.WriteLine("Rozłączenie klientów...");
+                            _work = false;
                             try
                             {
-                                if (client.Value != null && client.Value.Connected)
+                                if (client.Value != null)
                                 {
                                     try { client.Value.Shutdown(SocketShutdown.Both); } catch { }
                                     client.Value.Close();
+                                    _clients.Remove(client.Key);
                                 }
                             }
                             catch { /* ignoruj wyjątki przy zamykaniu klienta */ }
@@ -290,7 +309,15 @@ namespace KSTPC
                 {
                     if (_socket != null)
                     {
-                        try { _socket.Shutdown(SocketShutdown.Both); } catch { }
+                        try 
+                        {
+                            Console.WriteLine("[0x{0:x8}] Wysyłanie wiadomości zamknięcia połączenia", _socket.GetHashCode());
+                            KSTcpMessage message = new KSTcpMessage();
+                            message.Prepare(_remoteid, (int)KSTCommand.CloseConnection, 0, null);
+                            message.Send(_socket);
+                            _socket.Shutdown(SocketShutdown.Both);
+                        }
+                        catch { }
                         _socket.Close();
                     }
                 }
@@ -320,7 +347,7 @@ namespace KSTPC
                 switch (message.Command)
                 {
                     case (int)KSTCommand.CloseConnection:
-                        Disconnect();
+                        Disconnect(message.Remoteid);
                         break;
                     case (int)KSTCommand.SetRemoteid:
                         SetRemoteId(message);
