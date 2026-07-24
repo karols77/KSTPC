@@ -185,6 +185,7 @@ namespace KSTPC
         int _remoteid;
         bool _reading;
         public int remoteID => _remoteid;
+        public int id => _id;
         Queue<KSTcpMessage> _toRead;
         Queue<KSTcpMessage> _toWrite;
         #endregion
@@ -199,7 +200,6 @@ namespace KSTPC
             _lockvar = new object();
             _toRead = new Queue<KSTcpMessage>();
             _toWrite = new Queue<KSTcpMessage>();
-            _TSend = new Task(Send);
             _reading = false;
             try
             {
@@ -325,7 +325,7 @@ namespace KSTPC
                 {
                     if (_socket != null)
                     {
-                        try 
+                        try
                         {
                             Console.WriteLine("[0x{0:x8}] Wysyłanie wiadomości zamknięcia połączenia", _socket.GetHashCode());
                             KSTcpMessage message = new KSTcpMessage();
@@ -389,11 +389,11 @@ namespace KSTPC
         }
         void FwdMessage(KSTcpMessage message)
         {
-                if (_clients.ContainsKey(message.Fwdid))
-                {
-                    //Skorygować Remoteid na Fwdid
-                    message.Send(_clients[message.Fwdid]);
-                }
+            if (_clients.ContainsKey(message.Fwdid))
+            {
+                //Skorygować Remoteid na Fwdid
+                message.Send(_clients[message.Fwdid]);
+            }
         }
         void Send()
         {
@@ -431,6 +431,7 @@ namespace KSTPC
         {
             if (_work)
             {
+                Task _TSend = new Task(Send);
                 _TSend.Start();
                 _TSend.Wait();
             }
